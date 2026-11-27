@@ -1,0 +1,6 @@
+{
+  "name": "terminal-artifact-viewer",
+  "description": "Shows the PNG and JPEG files Claude Code sends as pictures in the conversation",
+  "owner": { "name": "kosako" },
+  "plugins": [{ "name": "terminal-artifact-viewer", "source": "./" }]
+}
