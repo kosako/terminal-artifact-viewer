@@ -58,10 +58,11 @@ function summarize(output: unknown) {
   }))
 }
 
-function record($: Writer, entry: Record<string, unknown> | undefined) {
+// `always` skips the line cap and the dedupe, for what must not be lost (a temp file left behind).
+function record($: Writer, entry: Record<string, unknown> | undefined, always = false) {
   if (entry === undefined) return
   const key = JSON.stringify(entry)
-  if (seen.has(key) || lines.length >= MAX_LINES) return
+  if (!always && (seen.has(key) || lines.length >= MAX_LINES)) return
   seen.add(key)
   lines.push(JSON.stringify({ at: new Date().toISOString(), ...entry }))
   const text = lines.join('\n') + '\n'
@@ -183,7 +184,8 @@ export const register: Register = on => {
         const key = `${stat.realPath}|${stat.size}|${stat.mtimeMs}`
         const hit = cache.get(key)
         if (hit !== undefined) {
-          prepared.push(hit)
+          // The key is the real file; keep the path this row named for the caption and alt.
+          prepared.push({ ...hit, path })
           continue
         }
         const head = Uint8Array.fromBase64((await $.fs.read(stat.realPath, { as: 'bytes', length: 32 })).base64)
@@ -223,7 +225,9 @@ export const register: Register = on => {
             // A failed removal leaves the converted picture behind, so record it.
             for (const argv of [['/bin/rm', '-f', out], ['/bin/rmdir', dir]]) {
               const done = await $.process.run(argv).catch(() => ({ exitCode: -1 }))
-              if (done.exitCode !== 0) record($, { event: 'cleanup-failed', command: argv[0], exitCode: done.exitCode })
+              if (done.exitCode !== 0) {
+                record($, { event: 'cleanup-failed', command: argv[0], exitCode: done.exitCode, folder: dir }, true)
+              }
             }
           }
         } else {
