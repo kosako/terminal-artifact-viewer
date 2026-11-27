@@ -29,8 +29,9 @@ const TOOL = 'SendUserFile'
 const KEPT_CALLS = 200
 /** A refused picture's share of the cache, in bytes. */
 const REFUSAL_BYTES = 64
-/** After a picture is drawn on screen, when the terminal is asked about it. */
+/** After a picture is drawn on screen, when the terminal is asked about it; after a refusal, when again. */
 const PROBE_DELAY_MS = 500
+const PROBE_AGAIN_MS = 1500
 /** Refusals in a row, each from a fresh draw, that turn pictures off. */
 const REFUSALS_TO_STOP = 2
 
@@ -86,6 +87,8 @@ export const register: Register = (on, options) => {
       const list = attachmentsOf(output)
       const registered = (await read($, calls)).find(call => call.id === props.tool_use_id)
       if (list === undefined || registered === undefined) return next(e)
+      // Off screen: whatever the cache lets go meanwhile is prepared again when the row comes back.
+      if (props.onScreen === null) preparedAt.delete(props.tool_use_id)
       const supportNow = await read($, support)
       if (supportNow === 'alt') return next(e)
 
@@ -136,7 +139,7 @@ export const register: Register = (on, options) => {
         isProbing = true
         const cells = fitToCells(first.picture.size, columns, fit)
         const probe = { requestId: e.requestId, key: `tav-${first.candidate.index}`, source: { png: first.picture.png }, ...cells }
-        $.clock.after(PROBE_DELAY_MS, () => {
+        $.clock.after(refusals === 0 ? PROBE_DELAY_MS : PROBE_AGAIN_MS, () => {
           void askTerminal($, probe)
         })
       }
@@ -226,8 +229,10 @@ type Probe = { requestId: string; key: string; source: { png: string }; columns:
  * only refusals in a row turn pictures off, and never once they were found drawn.
  */
 async function askTerminal($: EngineInterface, probe: Probe): Promise<void> {
-  const answer = await $.ui.blit(probe).catch(() => ({ deny: 'the swap failed' }))
+  // A call that fails says nothing about the terminal: the next draw on screen asks again.
+  const answer = await $.ui.blit(probe).catch(() => undefined)
   isProbing = false
+  if (answer === undefined) return
   if (answer.deny === undefined) {
     refusals = 0
     await update($, support, () => 'drawn')

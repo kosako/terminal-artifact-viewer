@@ -212,10 +212,12 @@ test('a terminal that refuses the picture twice gets the engine rows back, and a
   const ui = await mountRow($, id, attachments)
   await clock.advance(1)
   expect(await ui.find({ type: 'Image' })).toBeDefined()
-  // The first refusal asks for a fresh draw, which asks again.
+  // The first refusal asks for a fresh draw, which asks again 1.5 s later.
   await clock.advance(500)
   expect(await ui.find({ type: 'Image' })).toBeDefined()
   await clock.advance(500)
+  expect(blits.length).toBe(1)
+  await clock.advance(1000)
   expect(blits.length).toBe(2)
   expect(await ui.find({ type: 'Image' })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: 'engine: /work/a.png' })).toBeDefined()
@@ -341,4 +343,64 @@ test('a picture missing when it was sent is not registered, and its row is the e
   expect(await ui.find({ type: 'Text', text: /not shown/ })).toBeUndefined()
   expect(touched).toEqual(['/work/never.png'])
   await ui.unmount()
+})
+
+test('a blit call that fails is not counted as the terminal refusing', async ($, on) => {
+  const clock = mock.clock(on)
+  engineRows(on)
+  host(on, { '/work/a.png': PNG })
+  let blits = 0
+  on('ui.blit', () => {
+    blits += 1
+    throw new Error('the call failed')
+  })
+  const attachments = [image('/work/a.png')]
+  const id = await send($, on, attachments)
+
+  const ui = await mountRow($, id, attachments)
+  await clock.advance(1)
+  for (let round = 0; round < 3; round++) {
+    await ui.redraw()
+    await clock.advance(2000)
+  }
+  expect(blits).toBeGreaterThan(1)
+  expect(await ui.find({ type: 'Image' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a row whose picture the cache let go gets it back after leaving the screen and returning', async ($, on) => {
+  const clock = mock.clock(on)
+  engineRows(on)
+  const files: Record<string, string> = {}
+  host(on, files)
+  const ids: { id: string; attachments: Attachment[] }[] = []
+  let next = ''
+  on('tool.call', { tool: 'SendUserFile' }, (_, e) => {
+    next = e.tool_use_id
+    const path = (e as unknown as { files: string[] }).files[0] ?? ''
+    return { result: { attachments: [image(path)] } }
+  })
+  for (let i = 0; i < 33; i++) {
+    files[`/work/${i}.png`] = PNG
+    await $.tool.call({ tool: 'SendUserFile', files: [`/work/${i}.png`], status: 'normal' })
+    ids.push({ id: next, attachments: [image(`/work/${i}.png`)] })
+  }
+  const rows = []
+  for (const { id, attachments } of ids) {
+    rows.push(await mountRow($, id, attachments))
+    await clock.advance(1)
+  }
+  // The first row's picture went first: 32 pictures fit in the cache.
+  const first = rows[0]
+  const firstIds = ids[0]
+  if (first === undefined || firstIds === undefined) throw new Error('no rows')
+  await first.redraw()
+  expect(await first.find({ type: 'Image' })).toBeUndefined()
+
+  const props = { tool_use_id: firstIds.id, tool: 'SendUserFile', output: { attachments: firstIds.attachments }, isErrored: false }
+  await first.redraw({ ...props, onScreen: null })
+  await first.redraw({ ...props, onScreen: ON_SCREEN })
+  await clock.advance(1)
+  expect(await first.find({ type: 'Image' })).toBeDefined()
+  for (const row of rows) await row.unmount()
 })
