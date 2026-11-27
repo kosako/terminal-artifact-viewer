@@ -61,8 +61,8 @@ iTerm2 の直下では、この設定は要りません。
 設定は、Claude Code の `/config` の一覧で変えます。shell からは、設定の欄と値の入っていない欄を `claude plugin configure` で見て、値は標準入力の JSON で保存します (数値も 1 行の文字列で書きます)。
 
 ```bash
-claude plugin configure terminal-artifact-viewer
-echo '{"cellAspect": "0.45"}' | claude plugin configure terminal-artifact-viewer --values-stdin
+claude plugin configure terminal-artifact-viewer@terminal-artifact-viewer
+echo '{"cellAspect": "0.45"}' | claude plugin configure terminal-artifact-viewer@terminal-artifact-viewer --values-stdin
 ```
 
 ## 止め方と外し方
