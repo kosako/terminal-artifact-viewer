@@ -10,11 +10,12 @@
 
 - `terminal-artifact-viewer` (仮称) は、ターミナルで動く AI agent の会話の中に、agent が作った画像をそのまま表示する。
 - v0.1 の対象は、Claude Code の mod (plugin)、macOS の iTerm2 と、その中の Herdr、local の PNG と JPEG。
-- 今は Phase 0 (PoC) を終えた段階で、判定は Go。v0.1 の code はまだ無い。
+- Phase 0 (PoC) の判定は Go。今は v0.1 を作っている。
 
 ## 正本
 
-- `docs/phase0-poc.md`: Phase 0 の検証の記録と判断。v0.1 で決めることと作ることは 7 節、Go の前提は 8 節にある。
+- `docs/phase0-poc.md`: Phase 0 の検証の記録と判断。Go の前提は 8 節にある。
+- `docs/v0.1-design.md`: v0.1 の決めたこと、処理の流れ、上限、しないこと。上限の値は `src/artifact/limits.ts` にまとめる。
 - `README.md`: 利用者向けの説明と今の状態。
 - planning の文書 (dashboard、作業ログ、private な参照先) は repo の外に置く。手元の参照先は `.agent-context.local.md` に
   まとめる。この file は git の管理外で、利用者が持ち、agent は読むだけにする。中の参照先を tracked な file に写さない。
@@ -40,4 +41,8 @@
 - v0.1 で test や型の検査を足すときも、この job に step を足し、job の名前は変えない (変えるなら
   `.github/repo-baseline.json` も同じ PR で直す)。paths で job を絞らない (必須の check が報告されない PR は merge できない)。
 - 手元では `python3 -I scripts/check-home-paths.py` で同じ検査を走らせられる。
+- `src/artifact/` は Claude Code の API を import しない。test は `tests/unit/*.spec.ts` に書き、
+  `node --test 'tests/unit/**/*.spec.ts'` で走らせる (CI の `check` でも走る。node の版は `.node-version`)。
+- Claude Code とのつなぎの test は `tests/claude-code/*.test.tsx` に書き、`claude plugin test <repo>` で手元で走らせる。
+- module の間の import は、`.ts` の拡張子まで書く (node の test と mod の読み込みの両方で解決できる形)。
 - mod の検査: `claude plugin validate <mod の folder>`。
