@@ -29,10 +29,11 @@ claude plugin marketplace add ./terminal-artifact-viewer
 claude plugin install terminal-artifact-viewer@terminal-artifact-viewer
 ```
 
-GitHub から直接入れることもできます。Claude Code の prompt で次を打ち、`Add marketplace?` に `y` で答え、scope を選びます。
+clone せずに GitHub から入れることもできます。この場合、Claude Code は repo の写しを持ちます。更新は `claude plugin marketplace update terminal-artifact-viewer` のあと `claude plugin update terminal-artifact-viewer@terminal-artifact-viewer` で行い、Claude Code を起動し直します。
 
-```text
-/plugin install terminal-artifact-viewer --marketplace kosako/terminal-artifact-viewer
+```bash
+claude plugin marketplace add kosako/terminal-artifact-viewer
+claude plugin install terminal-artifact-viewer@terminal-artifact-viewer
 ```
 
 ### Herdr の中で使うとき
@@ -57,10 +58,11 @@ iTerm2 の直下では、この設定は要りません。
 
 画像が縦につぶれて見えたら値を上げ、縦に伸びて見えたら下げます。font や文字の大きさで変わります。0.41 は、確かめた環境 (セル 7.0 × 16.9 px) で測った値です。
 
-設定は、Claude Code の `/config` の一覧で変えます。今の値は、次の command で見られます。
+設定は、Claude Code の `/config` の一覧で変えます。shell からは、設定の欄と値の入っていない欄を `claude plugin configure` で見て、値は標準入力の JSON で保存します (数値も 1 行の文字列で書きます)。
 
 ```bash
 claude plugin configure terminal-artifact-viewer
+echo '{"cellAspect": "0.45"}' | claude plugin configure terminal-artifact-viewer --values-stdin
 ```
 
 ## 止め方と外し方
