@@ -12,4 +12,4 @@ Phase 0 (PoC) を終えた段階です。まだ使える形の配布物はあり
 
 ## ライセンス
 
-未定です。
+MIT License です。全文は [LICENSE](LICENSE) にあります。
