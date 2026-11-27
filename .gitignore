@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+
+# local の運用の file (git で管理しない)
+.agent-context.local.md
+.agent-packets/
+.agent-session-progress/

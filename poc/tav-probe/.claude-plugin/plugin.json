@@ -1,0 +1,5 @@
+{
+  "name": "tav-probe",
+  "version": "0.0.2",
+  "description": "Phase 0 probe: draws PNG/JPEG attachments of SendUserFile results inline and records what the render hooks see"
+}
