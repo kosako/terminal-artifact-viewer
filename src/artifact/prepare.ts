@@ -64,12 +64,21 @@ const READ_CHUNK = 3 * 1024 * 1024
 const JPEG_HEAD_BYTES = 1024 * 1024
 const STEP_TIMEOUT_MS = 15_000
 
+/** Never throws: every failure, an unforeseen one included, is a refusal with a fixed reason. */
 export async function preparePicture(
   path: string,
   io: PrepareIO,
   tools: ConvertTools = MACOS_TOOLS,
   limits: typeof LIMITS = LIMITS,
 ): Promise<Picture> {
+  try {
+    return await prepare(path, io, tools, limits)
+  } catch {
+    return refuse('the picture cannot be prepared')
+  }
+}
+
+async function prepare(path: string, io: PrepareIO, tools: ConvertTools, limits: typeof LIMITS): Promise<Picture> {
   const before = await io.stat(path).catch(() => undefined)
   if (before === undefined) return refuse('the file cannot be read')
   if (before.kind !== 'file' || before.realPath === undefined || !before.realPath.startsWith('/')) {
@@ -80,7 +89,12 @@ export async function preparePicture(
 
   const source = await readAll(before.realPath, before.size, io).catch(() => undefined)
   if (source === undefined) return refuse('the file cannot be read')
-  const bytes = io.decode(source)
+  let bytes: Uint8Array
+  try {
+    bytes = io.decode(source)
+  } catch {
+    return refuse('the file cannot be read')
+  }
   const after = await io.stat(path).catch(() => undefined)
   const isSame =
     after !== undefined &&
@@ -120,8 +134,13 @@ async function convert(
 ): Promise<Picture> {
   const made = await io.run([tools.mktemp, '-d', '-t', 'tav'], { timeoutMs: STEP_TIMEOUT_MS }).catch(() => undefined)
   const folder = made?.stdout.trim() ?? ''
-  if (made === undefined || made.exitCode !== 0 || !folder.startsWith('/') || folder.includes('\n')) {
-    return refuse('no private folder for the conversion')
+  const isFolder = folder.startsWith('/') && !folder.includes('\n')
+  if (made === undefined || made.exitCode !== 0 || !isFolder) {
+    const refused = refuse('no private folder for the conversion')
+    // A folder named despite the failure may exist: try to remove it, and say so if it stays.
+    if (!isFolder) return refused
+    const isRemoved = await removeFolder(folder, [], io, tools)
+    return isRemoved ? refused : { ...refused, leftBehind: folder }
   }
   const input = `${folder}/source`
   const output = `${folder}/view.png`
@@ -164,7 +183,10 @@ async function convertIn(
 }
 
 async function removeFolder(folder: string, files: readonly string[], io: PrepareIO, tools: ConvertTools): Promise<boolean> {
-  const removed = await io.run([tools.rm, '-f', ...files], { timeoutMs: STEP_TIMEOUT_MS }).catch(() => undefined)
+  const removed =
+    files.length === 0
+      ? { exitCode: 0 }
+      : await io.run([tools.rm, '-f', ...files], { timeoutMs: STEP_TIMEOUT_MS }).catch(() => undefined)
   const emptied = await io.run([tools.rmdir, folder], { timeoutMs: STEP_TIMEOUT_MS }).catch(() => undefined)
   return removed?.exitCode === 0 && emptied?.exitCode === 0
 }

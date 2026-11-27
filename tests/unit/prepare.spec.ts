@@ -33,6 +33,9 @@ class FakeHost implements PrepareIO {
   converted: Uint8Array | undefined = fixture('tav-fixture-wide.png')
   failing = new Set<string>()
   folder = '/fake/tmp/tav.1'
+  /** The exit code mktemp answers while still naming its folder. */
+  mktempExit = 0
+  decodeThrows = false
 
   async stat(path: string): Promise<FileInfo> {
     this.statCalls += 1
@@ -53,7 +56,7 @@ class FakeHost implements PrepareIO {
     this.runs.push({ argv, stdin: options.stdin })
     const [tool] = argv
     if (tool !== undefined && this.failing.has(tool)) return { exitCode: 1, stdout: '' }
-    if (tool === MACOS_TOOLS.mktemp) return { exitCode: 0, stdout: `${this.folder}\n` }
+    if (tool === MACOS_TOOLS.mktemp) return { exitCode: this.mktempExit, stdout: `${this.folder}\n` }
     if (tool === MACOS_TOOLS.base64) {
       this.files.set(argv[3] ?? '', { bytes: fromBase64(options.stdin ?? ''), mtimeMs: 1 })
       return { exitCode: 0, stdout: '' }
@@ -70,6 +73,7 @@ class FakeHost implements PrepareIO {
   }
 
   decode(base64: string): Uint8Array {
+    if (this.decodeThrows) throw new Error('bad base64')
     return fromBase64(base64)
   }
 
@@ -219,6 +223,42 @@ test('a converted picture that is not a PNG or is too large is refused', async (
   const nothing = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
   nothing.converted = undefined
   assert.deepEqual(await preparePicture('/work/b.jpg', nothing), { ok: false, reason: 'the conversion failed' })
+})
+
+test('a folder mktemp names despite failing is removed, or reported when it stays', async () => {
+  const removed = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
+  removed.mktempExit = 1
+  assert.deepEqual(await preparePicture('/work/b.jpg', removed), { ok: false, reason: 'no private folder for the conversion' })
+  assert.deepEqual(removed.tools(), [MACOS_TOOLS.mktemp, MACOS_TOOLS.rmdir])
+
+  const stays = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
+  stays.mktempExit = 1
+  stays.failing.add(MACOS_TOOLS.rmdir)
+  assert.deepEqual(await preparePicture('/work/b.jpg', stays), {
+    ok: false,
+    reason: 'no private folder for the conversion',
+    leftBehind: stays.folder,
+  })
+})
+
+test('bytes that cannot be decoded, and unforeseen throws, are refusals', async () => {
+  const undecodable = hostWith('/work/a.png', fixture('tav-fixture-wide.png'))
+  undecodable.decodeThrows = true
+  assert.deepEqual(await preparePicture('/work/a.png', undecodable), { ok: false, reason: 'the file cannot be read' })
+
+  // A run that throws before it hands back a promise, which no .catch on it sees.
+  const throwing = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
+  throwing.run = () => {
+    throw new TypeError('thrown at once')
+  }
+  assert.deepEqual(await preparePicture('/work/b.jpg', throwing), { ok: false, reason: 'the picture cannot be prepared' })
+
+  // A run that rejects is a failed step, not a throw.
+  const rejecting = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
+  rejecting.run = async () => {
+    throw new Error('rejected')
+  }
+  assert.deepEqual(await preparePicture('/work/b.jpg', rejecting), { ok: false, reason: 'no private folder for the conversion' })
 })
 
 test('a folder the conversion cannot remove is reported', async () => {
