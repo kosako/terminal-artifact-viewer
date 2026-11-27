@@ -54,10 +54,10 @@ export function jpegDimensions(bytes: Uint8Array): Dimensions | undefined {
     const length = readUint16(bytes, i + 2)
     if (length < 2) return undefined
     if (isStartOfFrame(marker)) {
-      // The whole segment must be there: precision, height, width, component count,
-      // and 3 bytes for each component.
+      // The whole segment must be there: precision, height, width, component count
+      // (at least one), and 3 bytes for each component.
       const components = bytes[i + 9] ?? 0
-      if (length < 8 || i + 2 + length > bytes.length || length !== 8 + 3 * components) return undefined
+      if (components < 1 || i + 2 + length > bytes.length || length !== 8 + 3 * components) return undefined
       const height = readUint16(bytes, i + 5)
       const width = readUint16(bytes, i + 7)
       return width > 0 && height > 0 ? { width, height } : undefined

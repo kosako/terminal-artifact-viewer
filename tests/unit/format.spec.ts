@@ -66,6 +66,8 @@ test('jpegDimensions refuses a frame segment that is cut short or mis-sized', ()
   for (let end = 4; end < whole.length; end++) {
     assert.equal(jpegDimensions(whole.subarray(0, end)), undefined, `cut at ${end}`)
   }
+  // No components: a frame needs at least one.
+  assert.equal(jpegDimensions(bytes(0xff, 0xd8, ...sof(0xc0, 3, 2, 0))), undefined)
   // The declared length does not match the component count.
   const misSized = bytes(0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x03, 0x00, 0x02, 0x01, 0x01, 0x11, 0x00)
   assert.equal(jpegDimensions(misSized), undefined)
