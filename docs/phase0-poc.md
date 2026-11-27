@@ -160,9 +160,23 @@ Claude Code 2.1.332 の本体の文字列から読んだ判定は次のとおり
 ## 9. 再現の手順
 
 1. PoC の mod (`poc/tav-probe/`) を `claude --plugin-dir <その folder>` で読み込む。Herdr の中では、起動の前に `CLAUDE_CODE_FORCE_TERMINAL_IMAGES=1` を付ける。
-2. Claude Code に、PNG と JPEG を `SendUserFile` で送らせる。
-3. 結果の行の下に画像が出るかを見る。描画の記録は、mod の data folder (`CLAUDE_PLUGIN_DATA`) に JSON Lines で残る。
+2. Claude Code に、`poc/fixtures/` の画像を `SendUserFile` で送らせる。path は絶対 path で渡す。
+3. 結果の行の下に画像が出るかを見る。円が丸く出ていれば、縦横比が合っている。描画の記録は、mod の data folder (`CLAUDE_PLUGIN_DATA`) に JSON Lines で残る。
 
-試験用の画像は、合成した 4 色の格子に円の PNG (640x360、300x600) です。ほかに、その JPEG、空白と日本語を含む名前の写し、3000x2000 の PNG を使った。
+試験用の画像は `poc/fixtures/` にある。合成した 4 色の格子に円の PNG (640x360、300x600) と、640x360 の JPEG (メタデータを除いた版) です。
+
+PoC では、ほかに次の 2 つも使った。どちらも repo には入れていない。
+
+- 空白と日本語を含む名前の写し: `poc/fixtures/` の画像を、そういう名前で手元に写して試す。
+- 3000x2000 の PNG (約 9MB): 2 MiB を超える PNG の経路 (`sips` での縮小) を試すためのもの。手元にある、2 MiB を超える写真などの PNG で試す。単色の多い画像は小さく圧縮されるので、この経路に入らないことがある。
+
+端末そのものが画像を出せるかの切り分け (V02、V03) には、`poc/tools/show-image.py` を使う。Claude Code を通さずに、PNG を 1 枚出す。
+
+```text
+python3 -I poc/tools/show-image.py kitty  poc/fixtures/tav-fixture-wide.png 40   # Herdr の pane の shell
+python3 -I poc/tools/show-image.py iterm2 poc/fixtures/tav-fixture-wide.png 40   # iTerm2 直下の shell
+```
+
+kitty の方式は桁数だけを渡すので、縦に伸びて見える (4.3)。
 
 `poc/tav-probe/` の版 (記録の書き先を data folder に変え、比を 0.41 にし、4.5 の検出を足した版) は、2026-11-27 に Herdr + FORCE と iTerm2 直下で、上の手順のとおり読み込めて動いた。その後、review の指摘で 3 点を直した。対象を `SendUserFile` だけにした。一時 file を消せなかったときは、記録の上限と重複の除外を外して、その folder とともに記録する。同じ実体を別の path で送ったときも、表示の名前と `alt` は送った path にする。直した版は `claude plugin validate` だけで確かめた (型の警告は、直す前と同じ 11 件で、増えていない)。実機ではまだ動かしていない。
