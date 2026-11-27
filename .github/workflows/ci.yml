@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# どの step も repo を読むだけなので、token は読み取りに絞る。
+permissions:
+  contents: read
+
+# PR は同じ branch の古い run を止める。main への push は merge ごとの結果を残すので止めない。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # job の名前 (check) は .github/repo-baseline.json の required_checks が指す。名前を変えたら一覧も合わせる。
+  # v0.1 で test や型の検査を足すときも、この job に step を足す。
+  # paths で絞らない。必須の check が報告されない PR は merge できなくなるため。
+  check:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: JSON files parse
+        shell: bash
+        run: |
+          failed=0
+          while IFS= read -r -d '' file; do
+            # ./ を付けて、- で始まる名前を option と読ませない。
+            if ! python3 -m json.tool "./$file" > /dev/null; then
+              echo "::error file=$file::not valid JSON"
+              failed=1
+            fi
+          done < <(git ls-files -z -- '*.json')
+          exit "$failed"
+      - name: No home paths in tracked files
+        # 規則 (URL と path の分け方、binary、symlink) は script の先頭に書いてある。
+        run: python3 -I scripts/check-home-paths.py
