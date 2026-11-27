@@ -40,3 +40,10 @@ jobs:
       - name: No home paths in tracked files
         # 規則 (URL と path の分け方、binary、symlink) は script の先頭に書いてある。
         run: python3 -I scripts/check-home-paths.py
+      # 画像の処理の module (src/artifact/) の test。Claude Code に依存しない部分だけを node で走らせる。
+      # Claude Code とのつなぎの test (tests/claude-code/) は claude plugin test で手元で走らせる。
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Unit tests
+        run: node --test 'tests/unit/**/*.spec.ts'
