@@ -2,6 +2,7 @@
 node_modules/
 
 # local の運用の file (git で管理しない)
+.claude/settings.local.json
 .agent-context.local.md
 .agent-packets/
 .agent-session-progress/
