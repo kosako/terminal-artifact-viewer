@@ -23,6 +23,9 @@
 ## 開発
 
 - Issue ごとに小さな PR にする。無関係な refactor をしない。
+- repo の root が v0.1 の plugin (mod) で、`claude --plugin-dir <repo>` で読み込む。hooks の module は
+  `src/integrations/claude-code/register.tsx`、session の state の型は `types/index.d.ts`、設定の欄は
+  `.claude-plugin/plugin.json` の `userConfig`。state の値の形を変えたら、`atom` の `shape` の tag も変える。
 - `poc/tav-probe/` は Phase 0 の結果を再現するための mod で、v0.1 の code を足さない。直すのは、記録の再現に要るときと、
   公開の repo に置くことで害が出うるときだけにする。
 - mod の API は Claude Code の版で変わる。使った版を記録に残す。型の定義は engine が `.claude-plugin/types/` に生成し、

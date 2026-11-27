@@ -133,7 +133,7 @@ test('a PNG past the inline bound is shrunk to the longer-side bound', async () 
   const big = fakePng(3000, 2000, 4096)
   const host = hostWith('/work/big.png', big)
   host.converted = fakePng(1600, 1067, 512)
-  const picture = await preparePicture('/work/big.png', host, MACOS_TOOLS, { ...LIMITS, maxInlinePngBytes: 1024 })
+  const picture = await preparePicture('/work/big.png', host, { limits: { ...LIMITS, maxInlinePngBytes: 1024 } })
   assert.deepEqual(picture.ok && picture.size, { width: 1600, height: 1067 })
   assert.deepEqual(host.runs[2]?.argv.slice(0, 6), [MACOS_TOOLS.sips, '-s', 'format', 'png', '-Z', '1600'])
 })
@@ -163,9 +163,22 @@ test('files that are not to be read are refused before reading', async () => {
   assert.deepEqual(await preparePicture('/work/empty.png', empty), { ok: false, reason: 'the file is empty' })
 
   const large = hostWith('/work/large.png', fakePng(10, 10, 2048))
-  const refused = await preparePicture('/work/large.png', large, MACOS_TOOLS, { ...LIMITS, maxSourceBytes: 1024 })
+  const refused = await preparePicture('/work/large.png', large, { limits: { ...LIMITS, maxSourceBytes: 1024 } })
   assert.equal(refused.ok, false)
   assert.deepEqual(large.reads, [])
+})
+
+test('a file that is no longer the one sent is refused before reading', async () => {
+  const sent = { realPath: '/work/a.png', size: fixture('tav-fixture-wide.png').length, mtimeMs: 100 }
+  const same = hostWith('/work/a.png', fixture('tav-fixture-wide.png'))
+  assert.equal((await preparePicture('/work/a.png', same, { expected: sent })).ok, true)
+
+  for (const change of [{ mtimeMs: 101 }, { size: sent.size + 1 }, { realPath: '/work/other.png' }]) {
+    const host = hostWith('/work/a.png', fixture('tav-fixture-wide.png'))
+    const refused = await preparePicture('/work/a.png', host, { expected: { ...sent, ...change } })
+    assert.deepEqual(refused, { ok: false, reason: 'the file changed since it was sent' })
+    assert.deepEqual(host.reads, [])
+  }
 })
 
 test('a file that changes between the stats around the read is refused', async () => {
@@ -222,7 +235,7 @@ test('a converted picture that is not a PNG or is too large is refused', async (
 
   const tooLarge = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
   const limits = { ...LIMITS, maxInlinePngBytes: 1024 }
-  assert.deepEqual(await preparePicture('/work/b.jpg', tooLarge, MACOS_TOOLS, limits), {
+  assert.deepEqual(await preparePicture('/work/b.jpg', tooLarge, { limits }), {
     ok: false,
     reason: 'the converted picture is still too large',
   })

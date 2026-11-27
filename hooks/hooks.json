@@ -1,0 +1,1 @@
+{ "modules": ["../src/integrations/claude-code/register.tsx"] }
