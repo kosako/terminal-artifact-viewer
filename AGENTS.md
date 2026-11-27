@@ -10,12 +10,13 @@
 
 - `terminal-artifact-viewer` (仮称) は、ターミナルで動く AI agent の会話の中に、agent が作った画像をそのまま表示する。
 - v0.1 の対象は、Claude Code の mod (plugin)、macOS の iTerm2 と、その中の Herdr、local の PNG と JPEG。
-- Phase 0 (PoC) の判定は Go。今は v0.1 を作っている。
+- Phase 0 (PoC) の判定は Go。v0.1 (Claude Code の mod) を作り、実機で受け入れの確認をした。
 
 ## 正本
 
 - `docs/phase0-poc.md`: Phase 0 の検証の記録と判断。Go の前提は 8 節にある。
 - `docs/v0.1-design.md`: v0.1 の決めたこと、処理の流れ、上限、しないこと。上限の値は `src/artifact/limits.ts` にまとめる。
+- `docs/v0.1-acceptance.md`: brief の AC01 から AC10 の結果と、確かめた版。
 - `README.md`: 利用者向けの説明と今の状態。
 - planning の文書 (dashboard、作業ログ、private な参照先) は repo の外に置く。手元の参照先は `.agent-context.local.md` に
   まとめる。この file は git の管理外で、利用者が持ち、agent は読むだけにする。中の参照先を tracked な file に写さない。
