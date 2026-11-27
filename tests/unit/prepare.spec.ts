@@ -36,6 +36,8 @@ class FakeHost implements PrepareIO {
   /** The exit code mktemp answers while still naming its folder. */
   mktempExit = 0
   decodeThrows = false
+  /** Commands that throw before handing back a promise. */
+  throwsAtOnce = new Set<string>()
 
   async stat(path: string): Promise<FileInfo> {
     this.statCalls += 1
@@ -52,8 +54,13 @@ class FakeHost implements PrepareIO {
     return toBase64(file.bytes.subarray(offset, offset + length))
   }
 
-  async run(argv: readonly string[], options: { stdin?: string; timeoutMs: number }): Promise<RunResult> {
+  run(argv: readonly string[], options: { stdin?: string; timeoutMs: number }): Promise<RunResult> {
     this.runs.push({ argv, stdin: options.stdin })
+    if (this.throwsAtOnce.has(argv[0] ?? '')) throw new TypeError('thrown at once')
+    return Promise.resolve(this.answer(argv, options))
+  }
+
+  answer(argv: readonly string[], options: { stdin?: string }): RunResult {
     const [tool] = argv
     if (tool !== undefined && this.failing.has(tool)) return { exitCode: 1, stdout: '' }
     if (tool === MACOS_TOOLS.mktemp) return { exitCode: this.mktempExit, stdout: `${this.folder}\n` }
@@ -246,9 +253,9 @@ test('bytes that cannot be decoded, and unforeseen throws, are refusals', async 
   undecodable.decodeThrows = true
   assert.deepEqual(await preparePicture('/work/a.png', undecodable), { ok: false, reason: 'the file cannot be read' })
 
-  // A run that throws before it hands back a promise, which no .catch on it sees.
+  // A stat that throws before it hands back a promise, which no .catch on it sees.
   const throwing = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
-  throwing.run = () => {
+  throwing.stat = () => {
     throw new TypeError('thrown at once')
   }
   assert.deepEqual(await preparePicture('/work/b.jpg', throwing), { ok: false, reason: 'the picture cannot be prepared' })
@@ -259,6 +266,33 @@ test('bytes that cannot be decoded, and unforeseen throws, are refusals', async 
     throw new Error('rejected')
   }
   assert.deepEqual(await preparePicture('/work/b.jpg', rejecting), { ok: false, reason: 'no private folder for the conversion' })
+})
+
+test('a command that throws at once during the conversion or its cleanup skips no later step', async () => {
+  const sips = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
+  sips.throwsAtOnce.add(MACOS_TOOLS.sips)
+  assert.deepEqual(await preparePicture('/work/b.jpg', sips), { ok: false, reason: 'the conversion failed' })
+  assert.deepEqual(sips.tools().slice(-2), [MACOS_TOOLS.rm, MACOS_TOOLS.rmdir])
+
+  // rm throws, rmdir still runs and takes the folder: nothing is left to report.
+  const rm = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
+  rm.throwsAtOnce.add(MACOS_TOOLS.rm)
+  const kept = await preparePicture('/work/b.jpg', rm)
+  assert.equal(kept.ok, true)
+  assert.equal(kept.leftBehind, undefined)
+  assert.deepEqual(rm.tools().slice(-2), [MACOS_TOOLS.rm, MACOS_TOOLS.rmdir])
+
+  // rmdir throws: the folder may stay, so it is reported.
+  const rmdir = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
+  rmdir.throwsAtOnce.add(MACOS_TOOLS.rmdir)
+  const reported = await preparePicture('/work/b.jpg', rmdir)
+  assert.equal(reported.ok, true)
+  assert.equal(reported.leftBehind, rmdir.folder)
+
+  // mktemp names a folder and then throws at once on the way out: nothing was made to remove.
+  const mktemp = hostWith('/work/b.jpg', fixture('tav-fixture-wide.jpg'))
+  mktemp.throwsAtOnce.add(MACOS_TOOLS.mktemp)
+  assert.deepEqual(await preparePicture('/work/b.jpg', mktemp), { ok: false, reason: 'no private folder for the conversion' })
 })
 
 test('a folder the conversion cannot remove is reported', async () => {

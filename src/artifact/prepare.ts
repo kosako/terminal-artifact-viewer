@@ -132,7 +132,7 @@ async function convert(
   tools: ConvertTools,
   limits: typeof LIMITS,
 ): Promise<Picture> {
-  const made = await io.run([tools.mktemp, '-d', '-t', 'tav'], { timeoutMs: STEP_TIMEOUT_MS }).catch(() => undefined)
+  const made = await attempt(io, [tools.mktemp, '-d', '-t', 'tav'])
   const folder = made?.stdout.trim() ?? ''
   const isFolder = folder.startsWith('/') && !folder.includes('\n')
   if (made === undefined || made.exitCode !== 0 || !isFolder) {
@@ -182,13 +182,20 @@ async function convertIn(
   return { ok: true, png, size: outSize, isConverted: true }
 }
 
+/** Removes the files, then the folder; true once the folder is gone (rmdir takes an empty folder only). */
 async function removeFolder(folder: string, files: readonly string[], io: PrepareIO, tools: ConvertTools): Promise<boolean> {
-  const removed =
-    files.length === 0
-      ? { exitCode: 0 }
-      : await io.run([tools.rm, '-f', ...files], { timeoutMs: STEP_TIMEOUT_MS }).catch(() => undefined)
-  const emptied = await io.run([tools.rmdir, folder], { timeoutMs: STEP_TIMEOUT_MS }).catch(() => undefined)
-  return removed?.exitCode === 0 && emptied?.exitCode === 0
+  if (files.length > 0) await attempt(io, [tools.rm, '-f', ...files])
+  const emptied = await attempt(io, [tools.rmdir, folder])
+  return emptied?.exitCode === 0
+}
+
+/** Runs a command; undefined when it throws at once or rejects, so a step's failure never skips the next. */
+async function attempt(io: PrepareIO, argv: readonly string[]): Promise<RunResult | undefined> {
+  try {
+    return await io.run(argv, { timeoutMs: STEP_TIMEOUT_MS })
+  } catch {
+    return undefined
+  }
 }
 
 function refuse(reason: string): Picture {
