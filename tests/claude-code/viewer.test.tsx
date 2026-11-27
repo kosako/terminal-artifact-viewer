@@ -223,6 +223,8 @@ test('a terminal that refuses the picture twice gets the engine rows back, and a
   expect(await ui.find({ type: 'Text', text: 'engine: /work/a.png' })).toBeDefined()
   expect(toasts.length).toBe(1)
   expect(toasts[0]).toContain('CLAUDE_CODE_FORCE_TERMINAL_IMAGES=1')
+  // The surface heads a toast with the plugin's name; the text does not repeat it.
+  expect(toasts[0]).not.toContain('terminal-artifact-viewer')
   await ui.unmount()
 })
 

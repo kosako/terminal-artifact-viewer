@@ -254,6 +254,7 @@ async function hintOnce($: EngineInterface): Promise<void> {
   const inHerdr = (await $.env.get('HERDR_ENV')) !== undefined
   const isForced = (await $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES')) !== undefined
   if (inHerdr && !isForced) {
-    $.ui.toast('terminal-artifact-viewer: inside Herdr, start Claude Code with CLAUDE_CODE_FORCE_TERMINAL_IMAGES=1 to see pictures (see the README)')
+    // The toast is headed by the plugin's name; the text stays short enough not to be cut.
+    $.ui.toast('Inside Herdr, start Claude Code with CLAUDE_CODE_FORCE_TERMINAL_IMAGES=1 to see pictures.')
   }
 }
