@@ -3,8 +3,15 @@ import assert from 'node:assert/strict'
 import { DEFAULT_FIT, fitToCells, parseCellAspect } from '../../src/artifact/fit.ts'
 
 test('a wide picture takes its natural width when the room allows', () => {
-  // 640 px at 7 px a column is 92 columns; 92 x (360 / 640) x 0.41 rounds to 21 rows.
-  assert.deepEqual(fitToCells({ width: 640, height: 360 }, 236), { columns: 92, rows: 21 })
+  // 640 px at 7 px a column fills 91 whole columns; 91 x (360 / 640) x 0.41 rounds to 21 rows.
+  assert.deepEqual(fitToCells({ width: 640, height: 360 }, 236), { columns: 91, rows: 21 })
+})
+
+test('a picture is never drawn wider than its own pixels', () => {
+  // 8 px fill one whole column of 7 px; two columns would be 14 px.
+  assert.equal(fitToCells({ width: 8, height: 8 }, 236).columns, 1)
+  assert.equal(fitToCells({ width: 13, height: 8 }, 236).columns, 1)
+  assert.equal(fitToCells({ width: 14, height: 8 }, 236).columns, 2)
 })
 
 test('a wide picture shrinks to the room left of the viewport', () => {
@@ -38,6 +45,20 @@ test('tiny and narrow cases still give at least one cell', () => {
   assert.deepEqual(fitToCells({ width: 640, height: 360 }, 3), { columns: 1, rows: 1 })
   assert.deepEqual(fitToCells({ width: 20_000, height: 1 }, 236), { columns: 100, rows: 1 })
   assert.deepEqual(fitToCells({ width: 1, height: 20_000 }, 236), { columns: 1, rows: 24 })
+})
+
+test('input that is not a positive finite number still gives at least one cell', () => {
+  const wide = { width: 640, height: 360 }
+  for (const viewport of [Number.NaN, Number.POSITIVE_INFINITY, -5, 0]) {
+    const cells = fitToCells(wide, viewport)
+    assert.ok(cells.columns >= 1 && cells.rows >= 1, `viewport ${viewport}`)
+    assert.ok(Number.isInteger(cells.columns) && Number.isInteger(cells.rows), `viewport ${viewport}`)
+  }
+  assert.deepEqual(fitToCells({ width: Number.NaN, height: 10 }, 236), { columns: 1, rows: 1 })
+  assert.deepEqual(fitToCells({ width: 10, height: 0 }, 236), { columns: 1, rows: 1 })
+  const odd = { ...DEFAULT_FIT, maxRows: 0, maxColumns: Number.NaN, cellWidthPx: 0, cellAspect: Number.NaN, indent: -3 }
+  const cells = fitToCells(wide, 236, odd)
+  assert.ok(cells.columns >= 1 && cells.rows === 1)
 })
 
 test('the cell aspect from settings is a finite number held to its range', () => {
