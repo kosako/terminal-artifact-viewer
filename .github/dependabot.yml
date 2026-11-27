@@ -1,0 +1,22 @@
+# Dependabot の version updates。今は GitHub Actions だけを見る。
+# v0.1 で依存の manifest (package.json など) を足したら、その ecosystem も足す。
+#
+# cooldown: 出てから 7 日たった release だけを提案する (乗っ取られた release を CI で走らせる前に見つかる時間を取る)。
+# security updates は待たない。
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
