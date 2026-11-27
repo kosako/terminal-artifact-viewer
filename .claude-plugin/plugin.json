@@ -1,0 +1,21 @@
+{
+  "name": "terminal-artifact-viewer",
+  "version": "0.1.0",
+  "description": "Shows the PNG and JPEG files Claude Code sends with SendUserFile as pictures in the conversation, right under their rows (Claude Code only for now)",
+  "author": {
+    "name": "kosako"
+  },
+  "repository": "https://github.com/kosako/terminal-artifact-viewer",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "cellAspect": {
+      "type": "number",
+      "title": "Cell aspect",
+      "description": "Terminal cell width divided by cell height, from 0.2 to 1.0. Raise it if pictures look squashed, lower it if they look stretched.",
+      "default": 0.41,
+      "min": 0.2,
+      "max": 1
+    }
+  }
+}

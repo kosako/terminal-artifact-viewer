@@ -46,6 +46,16 @@ export const MACOS_TOOLS: ConvertTools = {
   rmdir: '/bin/rmdir',
 }
 
+/** Which file a picture was sent as: what a later read must still find at the path. */
+export type FileIdentity = { readonly realPath: string; readonly size: number; readonly mtimeMs: number }
+
+export type PrepareOptions = {
+  /** Refuse the file unless it is still this one. */
+  readonly expected?: FileIdentity
+  readonly tools?: ConvertTools
+  readonly limits?: typeof LIMITS
+}
+
 export type Picture =
   | {
       readonly ok: true
@@ -65,25 +75,30 @@ const JPEG_HEAD_BYTES = 1024 * 1024
 const STEP_TIMEOUT_MS = 15_000
 
 /** Never throws: every failure, an unforeseen one included, is a refusal with a fixed reason. */
-export async function preparePicture(
-  path: string,
-  io: PrepareIO,
-  tools: ConvertTools = MACOS_TOOLS,
-  limits: typeof LIMITS = LIMITS,
-): Promise<Picture> {
+export async function preparePicture(path: string, io: PrepareIO, options: PrepareOptions = {}): Promise<Picture> {
   try {
-    return await prepare(path, io, tools, limits)
+    return await prepare(path, io, options.expected, options.tools ?? MACOS_TOOLS, options.limits ?? LIMITS)
   } catch {
     return refuse('the picture cannot be prepared')
   }
 }
 
-async function prepare(path: string, io: PrepareIO, tools: ConvertTools, limits: typeof LIMITS): Promise<Picture> {
+async function prepare(
+  path: string,
+  io: PrepareIO,
+  expected: FileIdentity | undefined,
+  tools: ConvertTools,
+  limits: typeof LIMITS,
+): Promise<Picture> {
   const before = await io.stat(path).catch(() => undefined)
   if (before === undefined) return refuse('the file cannot be read')
   if (before.kind !== 'file' || before.realPath === undefined || !before.realPath.startsWith('/')) {
     return refuse('not a regular file')
   }
+  const isExpected =
+    expected === undefined ||
+    (before.realPath === expected.realPath && before.size === expected.size && before.mtimeMs === expected.mtimeMs)
+  if (!isExpected) return refuse('the file changed since it was sent')
   if (before.size <= 0) return refuse('the file is empty')
   if (before.size > limits.maxSourceBytes) return refuse(`the file is larger than ${limits.maxSourceBytes} bytes`)
 
