@@ -38,13 +38,5 @@ jobs:
           done < <(git ls-files -z -- '*.json')
           exit "$failed"
       - name: No home paths in tracked files
-        shell: bash
-        run: |
-          # 公開の repo なので、手元の home の下の path を tracked な file に入れない。
-          # path の始まり (行頭か、名前に使わない文字の後) だけを見て、URL の途中の /home/ などは拾わない。
-          # binary の file も見る (-I を付けない)。この pattern の行は自分自身に当たらないので、どの file も外さない。
-          pattern='(^|[^A-Za-z0-9._~%-])/(Users|home)/[A-Za-z0-9._-]+/'
-          if git grep -nE "$pattern"; then
-            echo "::error::tracked files contain a home path; replace it with a repo-relative path or a placeholder"
-            exit 1
-          fi
+        # 規則 (URL と path の分け方、binary、symlink) は script の先頭に書いてある。
+        run: python3 -I scripts/check-home-paths.py
